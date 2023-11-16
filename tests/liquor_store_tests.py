@@ -39,7 +39,7 @@ class TestLiquorStoreDB(unittest.TestCase):
         updated_liquor = self.liquor_db.read(liquor2.get_data()[0])
 
         if updated_liquor is not None:
-            self.assertEqual(expected_stock, self.liquor_db.read(liquor2)[3])
+            self.assertEqual(expected_stock, updated_liquor.get_data()[3])
 
     def test_price_update(self):
         initial_price = 5000.0
@@ -48,7 +48,7 @@ class TestLiquorStoreDB(unittest.TestCase):
 
         # Update the liquor's price
         new_price = 7000.0
-        self.liquor_db.update(liquor3.get_data()[0], new_price=new_price)
+        self.liquor_db.update(liquor3.get_data()[0], price=new_price)
 
         # Retrieve the updated liquor from the database
         updated_liquor = self.liquor_db.read(liquor3.get_data()[0])
