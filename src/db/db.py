@@ -114,7 +114,7 @@ class LiquorDatabase:
                 """,
                 (uuid,),
             )
-            user = result.fetchone()
+            liquor = result.fetchone()
             return Liquor(*liquor) if liquor is not None else liquor
 
     def update(self, uuid: str, delta_stock: int = 0, delta_price: float = 0.0):
