@@ -167,18 +167,13 @@ class LiquorDatabase:
                 delta_balance (float): The change in balance for the user.
             """
             with sqlite3.connect(self.__db_path) as connection:
-                liquor = self.read(uuid)
-                if liquor is None:
-                    raise NameError(f"Liquor with UUID {uuid} not found.")
-                current_price = liquor.get_data()[4]
-                new_price = current_price + price
                 connection.execute(
                     """
                         UPDATE liquor_store
                         SET price = ?
                         WHERE uuid = ?
                     """,
-                    (new_price, uuid),
+                    (price, uuid),
                 )
 
 
