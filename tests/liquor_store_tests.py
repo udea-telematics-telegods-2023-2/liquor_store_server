@@ -15,9 +15,7 @@ class TestLiquorStoreDB(unittest.TestCase):
         self.liquor_db.create(liquor1)
 
         # Retrieve the liquor from the database
-        retrieved_liquor = self.liquor_db.read(
-            liquor1.get_data()[0]
-        )  # Assuming the first element in the tuple is the UUID
+        retrieved_liquor = self.liquor_db.read(liquor1.get_data()[0])
 
         self.assertIsNotNone(retrieved_liquor)
 
@@ -49,15 +47,14 @@ class TestLiquorStoreDB(unittest.TestCase):
         self.liquor_db.create(liquor3)
 
         # Update the liquor's price
-        delta_price = 7000.0
-        self.liquor_db.update(liquor3.get_data()[0], delta_price=delta_price)
+        new_price = 7000.0
+        self.liquor_db.update(liquor3.get_data()[0], new_price=new_price)
 
         # Retrieve the updated liquor from the database
-        expected_price = initial_price + delta_price
         updated_liquor = self.liquor_db.read(liquor3.get_data()[0])
 
         if updated_liquor is not None:
-            self.assertEqual(updated_liquor.get_data()[4], expected_price)
+            self.assertEqual(updated_liquor.get_data()[4], new_price)
 
     def tearDown(self):
         # Clean up the database after tests
