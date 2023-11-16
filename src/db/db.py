@@ -117,7 +117,7 @@ class LiquorDatabase:
             liquor = result.fetchone()
             return Liquor(*liquor) if liquor is not None else liquor
 
-    def update(self, uuid: str, delta_stock: int = 0, delta_price: float = 0.0):
+    def update(self, uuid: str, delta_stock: int = 0, price: float = -1):
         """
         Updates user information in the 'bank' table.
 
@@ -132,26 +132,7 @@ class LiquorDatabase:
         Note:
             If both 'password' and 'delta_balance' are provided, the function updates both.
         """
-
-        def __update_password(uuid: str, password: str):
-            """
-            Updates the password for a user in the 'bank' table.
-
-            Args:
-                uuid (str): The UUID of the user.
-                password (str): The new password for the user.
-            """
-            with sqlite3.connect(self.__db_path) as connection:
-                connection.execute(
-                    """
-                        UPDATE bank
-                        SET hash = ?
-                        WHERE uuid = ?
-                    """,
-                    (make_hash(password), uuid),
-                )
-
-        def __update_balance(uuid: str, delta_balance: float):
+        def __update_stock(uuid: str, delta_stock: int):
             """
             Updates the balance for a user in the 'bank' table.
 
@@ -160,31 +141,60 @@ class LiquorDatabase:
                 delta_balance (float): The change in balance for the user.
             """
             with sqlite3.connect(self.__db_path) as connection:
-                user = self.read(uuid)
-                if user is None:
-                    raise NameError(f"User with UUID {uuid} not found.")
-                current_balance = user.get_data()[3]
-                new_balance = current_balance + delta_balance
+                liquor = self.read(uuid)
+                if liquor is None:
+                    raise NameError(f"Liquor with UUID {uuid} not found.")
+                current_stock = liquor.get_data()[3]
+                new_stock = current_stock + delta_stock
+                if new_stock < 0:
+                    raise ValueError(f"Insufficient stock.")
+                else:
+                    connection.execute(
+                        """
+                            UPDATE liquor_store
+                            SET stock = ?
+                            WHERE uuid = ?
+                        """,
+                        (new_stock, uuid),
+                )
+       
+        def __update_price(uuid: str, price: float):
+            """
+            Updates the balance for a user in the 'bank' table.
+
+            Args:
+                uuid (str): The UUID of the user.
+                delta_balance (float): The change in balance for the user.
+            """
+            with sqlite3.connect(self.__db_path) as connection:
+                liquor = self.read(uuid)
+                if liquor is None:
+                    raise NameError(f"Liquor with UUID {uuid} not found.")
+                current_price = liquor.get_data()[4]
+                new_price = current_price + price
                 connection.execute(
                     """
-                        UPDATE bank
-                        SET balance = ?
+                        UPDATE liquor_store
+                        SET price = ?
                         WHERE uuid = ?
                     """,
-                    (new_balance, uuid),
+                    (new_price, uuid),
                 )
 
-        if password != "":
-            __update_password(uuid, password)
 
-        if delta_balance != 0.0:
-            __update_balance(uuid, delta_balance)
+        if delta_stock != 0:
+            __update_stock(uuid, delta_stock)
+
+        if price >= 0.0:
+            __update_price(uuid, price)
+
+       
 
     def delete(self, uuid: str):
         with sqlite3.connect(self.__db_path) as connection:
             connection.execute(
                 """
-                    DELETE FROM bank 
+                    DELETE FROM liquor_store 
                     WHERE uuid = ?;
                 """,
                 (uuid,),
