@@ -39,7 +39,7 @@ class Liquor:
         return self.uuid, self.commercial_name, self.country_code, self.stock, self.price
 
 
-class UserDatabase:
+class LiquorDatabase:
     """
     A class representing a user database with methods to interact with user data.
 
