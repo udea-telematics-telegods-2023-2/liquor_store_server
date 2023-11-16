@@ -74,7 +74,7 @@ class LiquorDatabase:
                         commercial_name TEXT UNIQUE,
                         country_code TEXT,
                         stock INTEGER,
-                        price REAL,
+                        price REAL
                     );
                     """
             )
