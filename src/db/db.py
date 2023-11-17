@@ -9,18 +9,23 @@ PROJECT_ROOT = get_project_root() # obtener la raíz de la carpeta
 @dataclass
 class Liquor:
     """
-    Represents a user in the bank with a unique identifier (UUID),
-    a username, a hashed password, and a balance.
+    Represents the information recorded in the liquor store
+    with a unique liquor alidentifier (UUID),
+    a commercial name, a country code for each liquor,
+    the stock for each product, and the price.
 
     Attributes:
-        uuid (str): A unique identifier (UUID) for the user.
-        username (str): The username associated with the user.
-        hash (str): The hashed password of the user.
-        balance (float): The balance associated with the user.
+        uuid (str): A unique identifier (UUID) for the liquor.
+        commercial_name (str): The commercial name associated with the liquor.
+        country_code (str): The country code of the liquor.
+        stock (int): The amount of liquor in the store.
+        price (float): The price associated for each liquor.
+      
 
     Methods:
-        get_data() -> tuple[str, str, str, float]:
-            Retrieves the user data as a tuple containing UUID, username, hashed password, and balance.
+        get_data() -> tuple[str, str, str, int, float]:
+            Retrieves the liquor data as a tuple containing UUID, 
+            liquor name, country code, existing stock, and price.
     """
 
     uuid: str
@@ -31,39 +36,39 @@ class Liquor:
 
     def get_data(self) -> tuple[str, str, str, int, float]:
         """
-        Retrieves the User data as a tuple containing UUID, username, hashed password, and balance.
-
+        Retrieves the liquor data as a tuple containing UUID, 
+            liquor name, country code, existing stock, and price.
         Returns:
-            tuple[str, str, str, float]: A tuple containing User data.
+            tuple[str, str, str, int, float]: A tuple containing Liquor data.
         """
         return self.uuid, self.commercial_name, self.country_code, self.stock, self.price
 
 
 class LiquorDatabase:
     """
-    A class representing a user database with methods to interact with user data.
+    A class representing a liquor database with methods to interact with liquor data.
 
     Attributes:
         db_path (str): The path to the SQLite database file.
 
     Methods:
-        create(user: User): Inserts a new user into the database.
-        read(uuid: str): Reads an existing user from the database.
-        update(uuid: str, password: str, delta_balance: float): Updates a password or adds to the balance of an existing user.
-        delete(uuid: str): Removes an existing user from the database.
+        create(liquor: Liquor): Inserts a new liquor into the database.
+        read(uuid: str): Reads an existing liquor from the database.
+        update(uuid: str, country_code: str, price: float): Updates a country_code or adds to the price of an existing liquor.
+        delete(uuid: str): Removes an existing liquor from the database.
 
     Note:
-        This class assumes the existence of a 'bank' table in the database with columns
-        'uuid', 'username', 'hash', and 'balance'.
+        This class assumes the existence of a 'liquor_store' table in the database with columns
+        'uuid', 'liquor_name', 'country_code', 'stock', and 'price'.
     """
 
     def __init__(self, db_path: str = f"{PROJECT_ROOT}/db/liquor_store.db"):
         """
-        Initializes the database with a standard bank table containing the
-        User data.
+        Initializes the database with a standard liquor_store table containing the
+        Liquor data.
 
         Args:
-            db_path (str): The path to the DB, defaults to {PROJECT_ROOT}/db/bank.db
+            db_path (str): The path to the DB, defaults to {PROJECT_ROOT}/db/liquor.db
         """
         self.__db_path: str = db_path
         with sqlite3.connect(self.__db_path) as connection:
@@ -81,10 +86,10 @@ class LiquorDatabase:
 
     def create(self, liquor: Liquor):
         """
-        Inserts a new user into the 'bank' table of the database.
+        Inserts a new liquor into the 'liquor_store' table of the database.
 
         Args:
-            user (User): The User instance to be inserted into the database.
+            liquor (Liquor): The Liquor instance to be inserted into the database.
         """
         with sqlite3.connect(self.__db_path) as connection:
             connection.execute(
@@ -98,13 +103,13 @@ class LiquorDatabase:
 
     def read(self, uuid: str) -> Liquor | None:
         """
-        Retrieves a user from the 'bank' table by UUID.
+        Retrieves a liquor from the 'liquor_store' table by UUID.
 
         Args:
-            uuid (str): The UUID of the user to be retrieved.
+            uuid (str): The UUID of the liquor to be retrieved.
 
         Returns:
-            User | None: A User instance if found, or None if the user is not found.
+            Liquor | None: A Liquor instance if found, or None if the liquor is not found.
         """
         with sqlite3.connect(self.__db_path) as connection:
             cursor = connection.cursor()
@@ -119,26 +124,26 @@ class LiquorDatabase:
 
     def update(self, uuid: str, delta_stock: int = 0, price: float = -1):
         """
-        Updates user information in the 'bank' table.
+        Updates liquor information in the 'liquor_store' table.
 
         Args:
-            uuid (str): The UUID of the user to be updated.
-            password (str, optional): The new password for the user. Defaults to an empty string.
-            delta_balance (float, optional): The change in balance for the user. Defaults to 0.0.
+            uuid (str): The UUID of the liquor to be updated.
+            delta_stock (int, optional): The new stock for the liquor. tells the total stock of a specific liquor.
+            price (float, optional): The change in price for the liquor. Defaults to -1.
 
         Raises:
-            NameError: If the user with the specified UUID is not found.
+            NameError: If the liquor with the specified UUID is not found.
 
         Note:
-            If both 'password' and 'delta_balance' are provided, the function updates both.
+            If both 'delta_stock' and 'price' are provided, the function updates both.
         """
         def __update_stock(uuid: str, delta_stock: int):
             """
-            Updates the balance for a user in the 'bank' table.
+            Updates the stock for a liquor in the 'liquor_store' table.
 
             Args:
-                uuid (str): The UUID of the user.
-                delta_balance (float): The change in balance for the user.
+                uuid (str): The UUID of the liquor.
+                delta_stock (int): The change in stock for the liquor.
             """
             with sqlite3.connect(self.__db_path) as connection:
                 liquor = self.read(uuid)
@@ -160,11 +165,11 @@ class LiquorDatabase:
        
         def __update_price(uuid: str, price: float):
             """
-            Updates the balance for a user in the 'bank' table.
+            Updates the price for a liquor in the 'liquor_store' table.
 
             Args:
-                uuid (str): The UUID of the user.
-                delta_balance (float): The change in balance for the user.
+                uuid (str): The UUID of the liquor.
+                price (float): The change in price for the liquor.
             """
             with sqlite3.connect(self.__db_path) as connection:
                 connection.execute(
