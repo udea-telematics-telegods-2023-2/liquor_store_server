@@ -103,7 +103,7 @@ class LiquorDatabase:
 
     def read(self, uuid: str) -> Liquor | None:
         """
-        Retrieves a liquor from the 'liquor_store' table by UUID.
+        Retrieves a UUID from the 'liquor_store' table.
 
         Args:
             uuid (str): The UUID of the liquor to be retrieved.
@@ -121,6 +121,16 @@ class LiquorDatabase:
             )
             liquor = result.fetchone()
             return Liquor(*liquor) if liquor is not None else liquor
+    def read_all(self) -> list[Liquor] | None:
+        with sqlite3.connect(self.__db_path) as connection:
+            cursor = connection.cursor()
+            result = cursor.execute(
+                """
+                    SELECT * FROM liquor_store
+                """              
+            )
+            liquors = result.fetchall()
+            return [Liquor(*liquor) for liquor in liquors] if liquors != [] else liquors
 
     def update(self, uuid: str, delta_stock: int = 0, price: float = -1):
         """
