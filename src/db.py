@@ -122,6 +122,7 @@ class LiquorDatabase:
             liquor = result.fetchone()
             return Liquor(*liquor) if liquor is not None else liquor
     def read_all(self) -> list[Liquor] | None:
+        """ Lee y guarda toda la lista de licores"""
         with sqlite3.connect(self.__db_path) as connection:
             cursor = connection.cursor()
             result = cursor.execute(

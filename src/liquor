@@ -2,6 +2,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from src.db import Liquor, LiquorDatabase
 from uuid import uuid4
+import json
 
 class Store:
     def __init__(self, database: LiquorDatabase = LiquorDatabase()):
@@ -17,8 +18,13 @@ class Store:
             return 253
         if free_liquor_name:
             return 0, "ok"
-    def list(self):
-        free_liquor_name = self.__database.read(uuid=uuid) 
+    def list(self) -> tuple[int,str]: 
+        free_liquors_name = self.__database.read_all() 
+        list_liquors_name = json.dumps(list_liquors_name)
+
+        #restored_list_liquors = json.loads(list_liquors_name)
+
+        return 0, list_liquors_name
 
 
 
