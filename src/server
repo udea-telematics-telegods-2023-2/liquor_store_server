@@ -15,10 +15,21 @@ class User_store:
     def disconect(self):
         print(f"{self.name} se ha desconectado.")
         self.conect = False
-    def is_conectado(self):
+    def is_conect(self):
         return self.conect
 
     def show_list(self, liquor_list):
         if self.conect:           
-            for liquor in liquor_list:
-                print(liquor)
+            print(f"Lista de licores:\n{liquor_list}")
+    def chose_one(self, liquor_list, opcion):
+        if self.is_conect():
+            try:
+                opcion = int(opcion)
+                liquor_list2 = json.loads(liquor_list)
+                if 1 <= opcion <= len(liquor_list2):
+                    print(f"{self.name} seleccionó el licor: {liquor_list2[opcion - 1]}")
+                else:
+                    print("No valid opcion.")
+            except ValueError:
+                print("Por favor, ingrese un número válido.")
+
