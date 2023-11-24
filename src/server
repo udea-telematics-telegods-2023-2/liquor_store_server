@@ -1,0 +1,24 @@
+import logging
+from rsa import key, encrypt, decrypt, newkeys
+from socketserver import ForkingTCPServer, BaseRequestHandler
+from src.liquor import Store
+from sys import argv, exit
+
+class User_store:
+    #se verificará si hay un usuario conectado
+    def __init__(self, name):
+        self.name = naame
+        self.conect = False
+    def conectar(self):
+        print(f"{self.name} se ha conectado.")
+        self.conect = True
+    def disconect(self):
+        print(f"{self.name} se ha desconectado.")
+        self.conect = False
+    def is_conectado(self):
+        return self.conect
+
+    def show_list(self, liquor_list):
+        if self.conect:           
+            for liquor in liquor_list:
+                print(liquor)
