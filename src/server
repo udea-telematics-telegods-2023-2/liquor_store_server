@@ -7,14 +7,18 @@ from sys import argv, exit
 class User_store:
     #se verificará si hay un usuario conectado
     def __init__(self, name):
-        self.name = naame
+        self.name = name
         self.conect = False
+    #si el usuario está conectado se retornará el nombre de este para luego 
+    #enviarlo al banco
     def conectar(self):
         print(f"{self.name} se ha conectado.")
         self.conect = True
+        return self.name
     def disconect(self):
         print(f"{self.name} se ha desconectado.")
         self.conect = False
+    #consultar estado de conexión:
     def is_conect(self):
         return self.conect
 
@@ -32,4 +36,28 @@ class User_store:
                     print("No valid opcion.")
             except ValueError:
                 print("Por favor, ingrese un número válido.")
+    
+class LiquorDelivery:
+    def __init__(self, user_name):
+        self.user_name = user_name
+    def get_virtual_liquor(self, liquor_name):
+        # Lógica para obtener el licor virtual correspondiente al nombre
+        return f"Virtual {liquor_name}"
+    def deliver_liquor(self, liquor_name):
+        # Simular la validación del pago
+        payment_validation = self.validate_payment()
+        if payment_validation == "OK":
+            # Entregar el licor virtual al usuario
+            virtual_liquor = self.get_virtual_liquor(liquor_name)
+            print(f"Licor entregado a {self.user_name}: {virtual_liquor}")
+            return virtual_liquor
+        else:
+            print(f"Error en la validación del pago: {payment_validation_result}")
+            return None
+    def validate_payment(self):
+        # confirmación "OK" desde el servidor del banco
+        return "OK"
+    def get_virtual_liquor(self, liquor_name):
+        # obtener el licor virtual correspondiente al nombre
+        return f"Virtual {liquor_name}"
 
