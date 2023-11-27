@@ -49,8 +49,7 @@ class Formatter(logging.Formatter):
         formatter = logging.Formatter(log_format, datefmt=self.DATEFMT)
         return formatter.format(record)
 
-
-class User_store:
+class Server:
     # se verificará si hay un usuario conectado
     # en este caso name tendrá que ser el uuid
     def __init__(self, name):
@@ -89,9 +88,7 @@ class User_store:
                     print("No valid opcion.")
             except ValueError:
                 print("Por favor, ingrese un número válido.")
-
-
-class LiquorDelivery:
+                
     def __init__(self, user_name):
         self.user_name = user_name
 
@@ -114,9 +111,6 @@ class LiquorDelivery:
     def get_virtual_liquor(self, liquor_name):
         # obtener el licor virtual correspondiente al nombre
         return f"Virtual {liquor_name}"
-
-
-class conection_bank:
     def bank_conection_server(self, mensaje):
         # CHANGE: Esta línea no es necesaria porque esos parámetros se obtienen al tirar el script
         # dirección del servidor del banco
@@ -142,8 +136,7 @@ class conection_bank:
                 liquor_delivery = LiquorDelivery(user_name)
                 liquor_delivery.deliver_liquor(liquor_name)
 
-
-class MyHandler(BaseRequestHandler):
+class Litlerhitler(BaseRequestHandler):
     def handle(self):
         print("Connection from ", str(self.client_address))
         data, conn = self.request
@@ -220,7 +213,7 @@ if __name__ == "__main__":
 
     # Create servers and their threads
     TCP_SERVER = ForkingUDPServer(
-        (LIQUOR_STORE_SERVER_IP, int(LIQUOR_STORE_PORT)), BankUDPServerHandler
+        (LIQUOR_STORE_SERVER_IP, int(LIQUOR_STORE_PORT)), Litlerhitler
     )
     # ↑↑↑ FIX ME: Cambia el BankUDPServerHandler por tu clase handler personalizada ↑↑↑
     UDP_SOCKET = socket(AF_INET, SOCK_DGRAM)
