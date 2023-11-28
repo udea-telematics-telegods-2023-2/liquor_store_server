@@ -1,53 +1,12 @@
 #!/usr/bin/env python
 import json
-import logging
 from socket import AF_INET, SOCK_DGRAM, socket
 from socketserver import ForkingTCPServer, ForkingUDPServer, BaseRequestHandler
 from src.liquor import Store
 from sys import argv, exit
 from random import randint
-from threading import Thread
+from utils import setup_logger
 
-
-class Formatter(logging.Formatter):
-    """
-    Custom log formatter for a more 'pichuki' log output.
-
-    Attributes:
-        FORMATS (dict): A mapping of log levels to their respective formats.
-            The formats include the log level, timestamp, and log message.
-        DATEFMT (str): The date format for the timestamp.
-
-    Methods:
-        format(record): Formats a log record into a string.
-    """
-
-    FORMATS = {
-        logging.DEBUG: "[DEBUG] %(asctime)s - %(message)s",
-        logging.INFO: "[INFO]  %(asctime)s - %(message)s",
-        logging.WARNING: "[WARN]  %(asctime)s - %(message)s",
-        logging.ERROR: "[ERROR] %(asctime)s - %(message)s",
-        logging.CRITICAL: "[CRIT]  %(asctime)s - %(message)s",
-    }
-
-    DATEFMT = "%d-%m-%Y %H:%M:%S"
-
-    def format(self, record) -> str:
-        """
-        Formats a log record into a string.
-
-        Args:
-            record (LogRecord): The log record to be formatted.
-
-        Returns:
-            str: The formatted log message.
-
-        Notes:
-            This method overrides the format method in the logging.Formatter class.
-        """
-        log_format = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_format, datefmt=self.DATEFMT)
-        return formatter.format(record)
 
 class Server:
     # se verificará si hay un usuario conectado
@@ -88,7 +47,7 @@ class Server:
                     print("No valid opcion.")
             except ValueError:
                 print("Por favor, ingrese un número válido.")
-                
+
     def __init__(self, user_name):
         self.user_name = user_name
 
@@ -111,6 +70,7 @@ class Server:
     def get_virtual_liquor(self, liquor_name):
         # obtener el licor virtual correspondiente al nombre
         return f"Virtual {liquor_name}"
+
     def bank_conection_server(self, mensaje):
         # CHANGE: Esta línea no es necesaria porque esos parámetros se obtienen al tirar el script
         # dirección del servidor del banco
@@ -135,6 +95,7 @@ class Server:
                 liquor_name = "NombreLicor"  # Reemplaza con el nombre del licor real
                 liquor_delivery = LiquorDelivery(user_name)
                 liquor_delivery.deliver_liquor(liquor_name)
+
 
 class Litlerhitler(BaseRequestHandler):
     def handle(self):
@@ -170,26 +131,6 @@ class Litlerhitler(BaseRequestHandler):
 
         else:
             conn.sendall("Comando no reconocido".encode("utf-8"))
-
-
-def setup_logger():
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    # Create console handler and set the level to DEBUG
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
-    # Create a formatter
-    formatter = Formatter()
-
-    # Add the formatter to the handler
-    ch.setFormatter(formatter)
-
-    # Add the handler to the logger
-    logger.addHandler(ch)
-
-    return logger
 
 
 if __name__ == "__main__":
