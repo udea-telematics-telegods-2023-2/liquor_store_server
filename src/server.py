@@ -4,10 +4,7 @@ from socket import AF_INET, SOCK_DGRAM, socket
 from socketserver import ThreadingTCPServer, BaseRequestHandler
 from src.liquor import LiquorStore
 from src.utils import setup_logger
-from string import ascii_lowercase
 from sys import argv, exit
-from random import randint
-import re
 
 connected_users = []
 
@@ -152,7 +149,6 @@ class LiquorStoreTCPServerHandler(BaseRequestHandler):
     def handle(self):
         LOGGER.info(f"Accepted connection from {self.client_address}")
         connected_users.append(self.client_address)
-        LOGGER.debug(connected_users)
 
         while True:
             # Extracts command and data from input
@@ -205,7 +201,7 @@ class LiquorStoreTCPServerHandler(BaseRequestHandler):
 
                 # Decode the data and decrypt it
                 decoded_data = data.decode("utf-8")
-                LOGGER.debug(f"Encrypted: {decoded_data}")
+                LOGGER.debug(f"Encrypted message: {decoded_data}")
 
                 if len(decoded_data) <= 1:
                     LOGGER.warning("Empty message")
@@ -213,7 +209,6 @@ class LiquorStoreTCPServerHandler(BaseRequestHandler):
                     return
 
                 n = decoded_data.split()[-1]
-                LOGGER.debug(f"Cipher number: {n}")
 
                 # Handle bad cypher decode number
                 if not n.isdigit():
@@ -224,14 +219,16 @@ class LiquorStoreTCPServerHandler(BaseRequestHandler):
                 # Decrypt using the decode number
                 decrypted_data = self.decrypt(decoded_data, int(n))
                 processed_data = " ".join(decrypted_data.split()[:-1])
-                LOGGER.debug(f"Plain-text: {processed_data}")
+                LOGGER.debug(f"Decrypted message: {processed_data}")
 
                 # Tell the user the response
                 self.request.sendall(f"{processed_data}\r\n".encode("utf-8"))
 
                 if processed_data.startswith("OK"):
-                    error_code, liquor_image = STORE.get_liquor(uuid)[1]
-                    self.request.sendall(f"{liquor_image}\r\n".encode("utf-8"))
+                    error_code, liquor_name = STORE.get_liquor_name(uuid)
+                    self.request.sendall(
+                        f"Here, enjoy your {liquor_name}\r\n".encode("utf-8")
+                    )
                     # Decrement stock
                     STORE.substract_stock(uuid)
 
@@ -239,89 +236,6 @@ class LiquorStoreTCPServerHandler(BaseRequestHandler):
 
         # connected_users.remove(self.client_address)
         self.finish()
-
-
-# class Server:
-#     # si el usuario está conectado se retornará el nombre de este para luego
-#     # enviarlo al banco
-#     def conectar(self):
-#         print(f"{self.name} se ha conectado.")
-#         self.conect = True
-#         return self.name
-#
-#     def disconect(self):
-#         print(f"{self.name} se ha desconectado.")
-#         self.conect = False
-#
-#     # consultar estado de conexión:
-#     def is_conect(self):
-#         return self.conect
-#
-#     def show_list(self, liquor_list):
-#         if self.conect:
-#             print(f"Lista de licores:\n{liquor_list}")
-#
-#     def chose_one(self, liquor_list, opcion):
-#         if self.is_conect():
-#             try:
-#                 opcion = int(opcion)
-#                 liquor_list2 = json.loads(liquor_list)
-#                 if 1 <= opcion <= len(liquor_list2):
-#                     print(
-#                         f"{self.name} seleccionó el licor: {liquor_list2[opcion - 1]}"
-#                     )
-#                 else:
-#                     print("No valid opcion.")
-#             except ValueError:
-#                 print("Por favor, ingrese un número válido.")
-#
-#     def __init__(self, user_name):
-#         self.user_name = user_name
-#
-#     def deliver_liquor(self, liquor_name):
-#         # Simular la validación del pago
-#         payment_validation = self.validate_payment()
-#         if payment_validation == "OK":
-#             # Entregar el licor virtual al usuario
-#             virtual_liquor = self.get_virtual_liquor(liquor_name)
-#             print(f"Licor entregado a {self.user_name}: {virtual_liquor}")
-#             return virtual_liquor
-#         else:
-#             # print(f"Error en la validación del pago: {payment_validation_result}")
-#             return None
-#
-#     def validate_payment(self):
-#         # confirmación "OK" desde el servidor del banco
-#         return "OK"
-#
-#     def get_virtual_liquor(self, liquor_name):
-#         # obtener el licor virtual correspondiente al nombre
-#         return f"Virtual {liquor_name}"
-#
-#     def bank_conection_server(self, mensaje):
-#         # CHANGE: Esta línea no es necesaria porque esos parámetros se obtienen al tirar el script
-#         # dirección del servidor del banco
-#         # server_bank_direction = ("127.0.0.0", 5555)
-#         # UDP socket
-#         with socket(AF_INET, SOCK_DGRAM) as udp_socket:
-#             udp_socket.sendto(mensaje.encode("utf-8"), (BANK_IP, BANK_PORT))
-#             # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
-#             print("Mensaje enviado al servidor del banco")
-#
-#             response, _ = udp_socket.recvfrom(1024)
-#             # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
-#             print("Respuesta del servidor del banco:", response.decode("utf-8"))
-#
-#             if response.decode("utf-8") == "OK":
-#                 # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
-#                 print(
-#                     "La transacción fue exitosa. Entregar el licor virtual al usuario."
-#                 )
-#                 # tomemos a Username como el uuid
-#                 user_name = "NombreUsuario"  # Reemplaza con el nombre de usuario real
-#                 liquor_name = "NombreLicor"  # Reemplaza con el nombre del licor real
-#                 # liquor_delivery = LiquorDelivery(user_name)
-#                 # liquor_delivery.deliver_liquor(liquor_name)
 
 
 if __name__ == "__main__":
