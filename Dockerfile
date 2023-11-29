@@ -27,3 +27,6 @@ RUN poetry env use 3.10
 
 # Install project dependencies
 RUN poetry install --no-root
+
+# Initialize DB
+RUN poetry run python -m src.default_db_liquors
