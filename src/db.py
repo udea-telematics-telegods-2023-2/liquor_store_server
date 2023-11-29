@@ -1,3 +1,4 @@
+from os import makedirs
 import sqlite3
 from dataclasses import dataclass
 
@@ -78,6 +79,8 @@ class LiquorDatabase:
             db_path (str): The path to the DB, defaults to {PROJECT_ROOT}/db/liquor.db
         """
         self.__db_path: str = db_path
+        # Create directories if they don't exist
+        makedirs(db_path[: db_path.rindex("/")], exist_ok=True)
         with sqlite3.connect(self.__db_path) as connection:
             connection.execute(
                 """
