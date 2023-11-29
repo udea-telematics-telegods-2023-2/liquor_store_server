@@ -1,136 +1,327 @@
 #!/usr/bin/env python
-import json
+from json import loads, dumps
 from socket import AF_INET, SOCK_DGRAM, socket
-from socketserver import ForkingTCPServer, ForkingUDPServer, BaseRequestHandler
-from src.liquor import Store
+from socketserver import ThreadingTCPServer, BaseRequestHandler
+from src.liquor import LiquorStore
+from src.utils import setup_logger
+from string import ascii_lowercase
 from sys import argv, exit
 from random import randint
-from utils import setup_logger
+import re
+
+connected_users = []
 
 
-class Server:
-    # se verificará si hay un usuario conectado
-    # en este caso name tendrá que ser el uuid
-    def __init__(self, name):
-        self.name = name
-        self.conect = False
+class Command:
+    """
+    Represents a command for the liquor store with associated functions.
 
-    # si el usuario está conectado se retornará el nombre de este para luego
-    # enviarlo al banco
-    def conectar(self):
-        print(f"{self.name} se ha conectado.")
-        self.conect = True
-        return self.name
+    Attributes:
+        __command (str): The command string.
+        __arguments (list): The list of arguments for the command.
+        __fn (callable): The function associated with the command.
+        __error_code (int): The error code resulting from the command execution.
 
-    def disconect(self):
-        print(f"{self.name} se ha desconectado.")
-        self.conect = False
+    Methods:
+        debug(): Logs a debug message when the command is executed.
+        no_fn(_: None) -> tuple[int, str]: Default function for commands without an associated function.
+        wrong_args(_: None) -> tuple[int, str]: Function for commands with incorrect arguments.
+        __check_args(args_number: int = 0, fn: callable = no_fn): Checks and sets the associated function based on the command.
+        fn() -> tuple[int, str]: Executes the associated function and returns the result.
+    """
 
-    # consultar estado de conexión:
-    def is_conect(self):
-        return self.conect
+    def debug(self):
+        """
+        Outputs additional information to the logger.
+        """
+        if self.fn != self.no_fn:
+            LOGGER.debug(
+                f"{self.__command}:{self.__arguments} executed",
+            )
 
-    def show_list(self, liquor_list):
-        if self.conect:
-            print(f"Lista de licores:\n{liquor_list}")
+    def no_fn(self, _=None) -> tuple[int, str]:
+        """
+        Default function for non-valid commands.
+        """
+        return 254, ""
 
-    def chose_one(self, liquor_list, opcion):
-        if self.is_conect():
-            try:
-                opcion = int(opcion)
-                liquor_list2 = json.loads(liquor_list)
-                if 1 <= opcion <= len(liquor_list2):
-                    print(
-                        f"{self.name} seleccionó el licor: {liquor_list2[opcion - 1]}"
-                    )
+    def wrong_args(self, _=None) -> tuple[int, str]:
+        """
+        Default function for wrong_number of arguments.
+        """
+        return 253, ""
+
+    def hi(self, _=None) -> tuple[int, str]:
+        """
+        Function that handles first connection.
+        """
+        return 0, "liquor_store"
+
+    def __check_args(self, args_number: int = 0, fn=no_fn):
+        """
+        Checks if the number of arguments supplied is correct.
+        """
+        if len(self.__arguments) != args_number:
+            self.__arguments = []
+            self.__fn = self.wrong_args
+        else:
+            self.__fn = fn
+
+    def __init__(self, command: str, arguments: list):
+        self.__command = command
+        self.__arguments = arguments
+        self.__fn = self.no_fn
+
+        match self.__command:
+            case "HI":
+                self.__check_args(args_number=0, fn=self.hi)
+
+            case "LIST":
+                self.__check_args(args_number=0, fn=STORE.list)
+
+            case "BUY":
+                self.__check_args(args_number=1, fn=STORE.check_liquor)
+
+            case _:
+                self.__arguments = []
+
+    def fn(self) -> tuple[int, str]:
+        """
+        Executes the binded function of the command and returns the error code.
+        """
+        self.__error_code, data = self.__fn(*self.__arguments)
+        if self.__error_code == 0:
+            return 0, data
+        return self.__error_code, ""
+
+
+class LiquorStoreTCPServerHandler(BaseRequestHandler):
+    def handle_error(self, error_code: int):
+        error_msg = f"Error {error_code}: "
+        match error_code:
+            case 1:
+                error_msg += "Invalid login"
+            case 2:
+                error_msg += "Invalid registration"
+            case 3:
+                error_msg += "Insufficient funds"
+            case 4:
+                error_msg += "Insufficient liquor"
+            case 251:
+                error_msg += "Unauthorized access"
+            case 252:
+                error_msg += "UUID not found"
+            case 253:
+                error_msg += "Bad arguments"
+            case 254:
+                error_msg += "Unknown command"
+            case 255:
+                error_msg += "Unknown error"
+
+        LOGGER.error(error_msg)
+
+    def send_error_code(self, error_code=255):
+        self.request.sendall(f"ERR {error_code}\r\n".encode("utf-8"))
+
+    def send_ok_data(self, ok_data=""):
+        self.request.sendall(f"OK {ok_data}\r\n".encode("utf-8"))
+
+    def encrypt(self, msg: str, n: int):
+        result = ""
+        for char in msg:
+            if char.isalpha():
+                # Shift letters
+                if char.islower():
+                    result += chr((ord(char) - ord("a") + n) % 26 + ord("a"))
                 else:
-                    print("No valid opcion.")
-            except ValueError:
-                print("Por favor, ingrese un número válido.")
+                    result += chr((ord(char) - ord("A") + n) % 26 + ord("A"))
+            elif char.isdigit():
+                # Shift numbers
+                result += chr((ord(char) - ord("0") + n) % 10 + ord("0"))
+            else:
+                # Keep spaces unchanged
+                result += char
+        return result
 
-    def __init__(self, user_name):
-        self.user_name = user_name
+    def decrypt(self, msg: str, n: int) -> str:
+        return self.encrypt(msg, -n)
 
-    def deliver_liquor(self, liquor_name):
-        # Simular la validación del pago
-        payment_validation = self.validate_payment()
-        if payment_validation == "OK":
-            # Entregar el licor virtual al usuario
-            virtual_liquor = self.get_virtual_liquor(liquor_name)
-            print(f"Licor entregado a {self.user_name}: {virtual_liquor}")
-            return virtual_liquor
-        else:
-            print(f"Error en la validación del pago: {payment_validation_result}")
-            return None
+    def send_encrypted_data(self, conn, to, n: int, encrypted_msg: str):
+        conn.sendto(self.encrypt(f"{encrypted_msg} {n}\r\n", n).encode("utf-8"), to)
 
-    def validate_payment(self):
-        # confirmación "OK" desde el servidor del banco
-        return "OK"
-
-    def get_virtual_liquor(self, liquor_name):
-        # obtener el licor virtual correspondiente al nombre
-        return f"Virtual {liquor_name}"
-
-    def bank_conection_server(self, mensaje):
-        # CHANGE: Esta línea no es necesaria porque esos parámetros se obtienen al tirar el script
-        # dirección del servidor del banco
-        # server_bank_direction = ("127.0.0.0", 5555)
-        # UDP socket
-        with socket(AF_INET, SOCK_DGRAM) as udp_socket:
-            udp_socket.sendto(mensaje.encode("utf-8"), (BANK_IP, BANK_PORT))
-            # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
-            print("Mensaje enviado al servidor del banco")
-
-            response, _ = udp_socket.recvfrom(1024)
-            # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
-            print("Respuesta del servidor del banco:", response.decode("utf-8"))
-
-            if response.decode("utf-8") == "OK":
-                # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
-                print(
-                    "La transacción fue exitosa. Entregar el licor virtual al usuario."
-                )
-                # tomemos a Username como el uuid
-                user_name = "NombreUsuario"  # Reemplaza con el nombre de usuario real
-                liquor_name = "NombreLicor"  # Reemplaza con el nombre del licor real
-                liquor_delivery = LiquorDelivery(user_name)
-                liquor_delivery.deliver_liquor(liquor_name)
-
-
-class Litlerhitler(BaseRequestHandler):
     def handle(self):
-        print("Connection from ", str(self.client_address))
-        data, conn = self.request
-        decoded_data = data.decode("utf-8")
+        LOGGER.info(f"Accepted connection from {self.client_address}")
+        connected_users.append(self.client_address)
+        LOGGER.debug(connected_users)
 
-        if decoded_data.startswith("CONNECT"):
-            # Obtener el UUID del usuario desde el comando CONNECT
-            _, user_uuid = decoded_data.split()
-            # Aquí le pasamos a User_Store el uuid del cliente que se conectó
-            connected_user = User_store(user_uuid)
-            # Aquí verificamos si está conectado
-            connected_user.conectar()
-            # Desplego la lista
-            store = Store()
-            _, liquor_list = store.list()
-            # Se envía la lista al cliente
-            conn.sendall(json.dumps(liquor_list).encode("utf-8"))
+        while True:
+            # Extracts command and data from input
+            data = self.request.recv(4096).decode("utf-8")
 
-            # Se recibe la elección del cliente
-            user_choice = conn.recv(4096).decode("utf-8")
-            # Obtener la opción del usuario y realizar la elección
-            _, option = user_choice.split()
-            connected_user.chose_one(liquor_list, option)
+            # Check if client disconnected
+            if not data:
+                LOGGER.info(f"Finished connection from {self.client_address}")
+                connected_users.remove(self.client_address)
+                break
 
-            # Obtener el nombre del licor seleccionado
-            selected_liquor_name = liquor_list[int(option) - 1]
+            # Checks non-empty message
+            if len(data) <= 2:
+                LOGGER.warning("Empty message")
+                continue
 
-            # Obtener el número de puerto del socket
-            server_port = conn.getsockname()[1]
-            print(f"El número de puerto es: {server_port}")
+            command, *arguments = data.split()
+            cmd = Command(command, arguments)
+            cmd.debug()
+            LOGGER.info(f"Command {command} issued by {self.client_address}")
 
-        else:
-            conn.sendall("Comando no reconocido".encode("utf-8"))
+            error_code, cmd_return = cmd.fn()
+
+            if error_code != 0:
+                self.handle_error(error_code)
+                self.send_error_code(error_code)
+                continue
+
+            if command == "LIST":
+                # Talk to client
+                parsed_json = loads(cmd_return)
+                # Add connected users
+                parsed_json.append(len(connected_users))
+                # Add owner's bank account's UUID
+                parsed_json.append(OWNER_UUID)
+                self.send_ok_data(dumps(parsed_json))
+
+            elif command == "BUY":
+                uuid = arguments[0]
+                error_code, price = STORE.get_liquor_price(uuid)
+                self.send_ok_data(f"{cmd_return}{price}")
+
+                # Extracts command and data from input
+                data = self.request.recv(4096)
+
+                # Forwards message to bank (encrypted)
+                UDP_SOCKET.sendto(data, (BANK_IP, int(BANK_PORT)))
+
+                data, _ = UDP_SOCKET.recvfrom(4096)
+
+                # Decode the data and decrypt it
+                decoded_data = data.decode("utf-8")
+                LOGGER.debug(f"Encrypted: {decoded_data}")
+
+                if len(decoded_data) <= 1:
+                    LOGGER.warning("Empty message")
+                    self.finish()
+                    return
+
+                n = decoded_data.split()[-1]
+                LOGGER.debug(f"Cipher number: {n}")
+
+                # Handle bad cypher decode number
+                if not n.isdigit():
+                    LOGGER.warning("Bad cypher")
+                    self.finish()
+                    return
+
+                # Decrypt using the decode number
+                decrypted_data = self.decrypt(decoded_data, int(n))
+                processed_data = " ".join(decrypted_data.split()[:-1])
+                LOGGER.debug(f"Plain-text: {processed_data}")
+
+                # Tell the user the response
+                self.request.sendall(f"{processed_data}\r\n".encode("utf-8"))
+
+                if processed_data.startswith("OK"):
+                    error_code, liquor_image = STORE.get_liquor(uuid)[1]
+                    self.request.sendall(f"{liquor_image}\r\n".encode("utf-8"))
+                    # Decrement stock
+                    STORE.substract_stock(uuid)
+
+                # Answer to client
+
+        # connected_users.remove(self.client_address)
+        self.finish()
+
+
+# class Server:
+#     # si el usuario está conectado se retornará el nombre de este para luego
+#     # enviarlo al banco
+#     def conectar(self):
+#         print(f"{self.name} se ha conectado.")
+#         self.conect = True
+#         return self.name
+#
+#     def disconect(self):
+#         print(f"{self.name} se ha desconectado.")
+#         self.conect = False
+#
+#     # consultar estado de conexión:
+#     def is_conect(self):
+#         return self.conect
+#
+#     def show_list(self, liquor_list):
+#         if self.conect:
+#             print(f"Lista de licores:\n{liquor_list}")
+#
+#     def chose_one(self, liquor_list, opcion):
+#         if self.is_conect():
+#             try:
+#                 opcion = int(opcion)
+#                 liquor_list2 = json.loads(liquor_list)
+#                 if 1 <= opcion <= len(liquor_list2):
+#                     print(
+#                         f"{self.name} seleccionó el licor: {liquor_list2[opcion - 1]}"
+#                     )
+#                 else:
+#                     print("No valid opcion.")
+#             except ValueError:
+#                 print("Por favor, ingrese un número válido.")
+#
+#     def __init__(self, user_name):
+#         self.user_name = user_name
+#
+#     def deliver_liquor(self, liquor_name):
+#         # Simular la validación del pago
+#         payment_validation = self.validate_payment()
+#         if payment_validation == "OK":
+#             # Entregar el licor virtual al usuario
+#             virtual_liquor = self.get_virtual_liquor(liquor_name)
+#             print(f"Licor entregado a {self.user_name}: {virtual_liquor}")
+#             return virtual_liquor
+#         else:
+#             # print(f"Error en la validación del pago: {payment_validation_result}")
+#             return None
+#
+#     def validate_payment(self):
+#         # confirmación "OK" desde el servidor del banco
+#         return "OK"
+#
+#     def get_virtual_liquor(self, liquor_name):
+#         # obtener el licor virtual correspondiente al nombre
+#         return f"Virtual {liquor_name}"
+#
+#     def bank_conection_server(self, mensaje):
+#         # CHANGE: Esta línea no es necesaria porque esos parámetros se obtienen al tirar el script
+#         # dirección del servidor del banco
+#         # server_bank_direction = ("127.0.0.0", 5555)
+#         # UDP socket
+#         with socket(AF_INET, SOCK_DGRAM) as udp_socket:
+#             udp_socket.sendto(mensaje.encode("utf-8"), (BANK_IP, BANK_PORT))
+#             # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
+#             print("Mensaje enviado al servidor del banco")
+#
+#             response, _ = udp_socket.recvfrom(1024)
+#             # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
+#             print("Respuesta del servidor del banco:", response.decode("utf-8"))
+#
+#             if response.decode("utf-8") == "OK":
+#                 # FIXME: Cambia este y TODOS los prints por mensajes usando el LOGGER
+#                 print(
+#                     "La transacción fue exitosa. Entregar el licor virtual al usuario."
+#                 )
+#                 # tomemos a Username como el uuid
+#                 user_name = "NombreUsuario"  # Reemplaza con el nombre de usuario real
+#                 liquor_name = "NombreLicor"  # Reemplaza con el nombre del licor real
+#                 # liquor_delivery = LiquorDelivery(user_name)
+#                 # liquor_delivery.deliver_liquor(liquor_name)
 
 
 if __name__ == "__main__":
@@ -148,27 +339,26 @@ if __name__ == "__main__":
     LIQUOR_STORE_SERVER_IP, LIQUOR_STORE_PORT, BANK_IP, BANK_PORT = argv[1:]
 
     # Declare global variables and initialize them
-    global STORE, connected_users
-    STORE = Store()
-    connected_users = []
+    global STORE, OWNER_UUID
+    STORE = LiquorStore()
+    OWNER_UUID = "4e0d3bbc-fac8-4a28-909a-752f65cf9c6c"
 
-    # Create servers and their threads
-    TCP_SERVER = ForkingUDPServer(
-        (LIQUOR_STORE_SERVER_IP, int(LIQUOR_STORE_PORT)), Litlerhitler
+    # Create servers
+    TCP_SERVER = ThreadingTCPServer(
+        (LIQUOR_STORE_SERVER_IP, int(LIQUOR_STORE_PORT)), LiquorStoreTCPServerHandler
     )
-    # ↑↑↑ FIX ME: Cambia el BankUDPServerHandler por tu clase handler personalizada ↑↑↑
     UDP_SOCKET = socket(AF_INET, SOCK_DGRAM)
 
     try:
-        TCP_SERVER.serve_forever
         LOGGER.info(
             f"TCP Server listening on {LIQUOR_STORE_SERVER_IP}:{LIQUOR_STORE_PORT}"
         )
+        TCP_SERVER.serve_forever()
 
     except KeyboardInterrupt:
         # Empty print to not have the ^C in the same line as the warn
         print("")
         LOGGER.warning("Stopping server, please wait...")
 
-        # Shutdown both servers
+        # Shutdown server
         TCP_SERVER.shutdown()

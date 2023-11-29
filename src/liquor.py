@@ -1,33 +1,53 @@
-from src.db import LiquorDatabase
+from src.db import Liquor, LiquorDatabase
 import json
 
 
-class Store:
-    # FIX ME: falta documentación estilo Google de la clase, y de cada uno de sus funciones
+class LiquorStore:
     def __init__(self, database: LiquorDatabase = LiquorDatabase()):
         self.__database = database
 
     def check_liquor(self, uuid: str = "") -> tuple[int, str]:
-        if uuid == "":  # si dejan el espacio de nombre vacio
+        if uuid == "":
             return 253, ""
-        # CHANGE: cambié el nombre de free_liquor_name a liquor para
-        # hacer referencia a un licor de la base de datos
-        liquor = self.__database.read(uuid=uuid)
-        # CHANGE: cambié la comparación para que sea explícita
-        # (comparar si es del tipo None)
-        # si no se encuentra el licor en la tienda
-        if liquor is None:
-            return 252, ""
-        liquor_data = liquor.get_data()
-        # si no hay stock del licor pedido
-        if liquor_data[3] == 0:
-            return 253, ""  # FIX ME: 253 NO ES ERROR DE STOCK
-        # si todo sale bien, retornar error 0
+
+        liquor = self.__database.read(uuid=uuid, read_all=False)
+        if isinstance(liquor, Liquor):
+            liquor_data = liquor.get_data()
+            if liquor_data[3] == 0:
+                return 4, ""
+            return 0, ""
+        return 252, ""
+
+    def substract_stock(self, uuid: str = "") -> tuple[int, str]:
+        if uuid == "":
+            return 253, ""
+
+        self.__database.update(uuid=uuid, delta_stock=-1)
         return 0, ""
 
     def list(self) -> tuple[int, str]:
-        liquors = self.__database.read_all()
-        list_liquors_name = json.dumps(liquors)
-        # FIX ME: Borrar este comentario y todos los que puse que son reseñas
-        # restored_list_liquors = json.loads(list_liquors_name)
-        return 0, list_liquors_name
+        liquors = self.__database.read(read_all=True)
+        liquors_list = []
+        if isinstance(liquors, list):
+            liquors_list = [liquor.get_data() for liquor in liquors]
+        return 0, json.dumps(liquors_list)
+
+    def get_liquor_name(self, uuid: str = "") -> tuple[int, str]:
+        if uuid == "":
+            return 253, ""
+
+        liquor = self.__database.read(uuid=uuid, read_all=False)
+        if isinstance(liquor, Liquor):
+            liquor_name = liquor.get_data()[1]
+            return 0, liquor_name
+        return 252, ""
+
+    def get_liquor_price(self, uuid: str = "") -> tuple[int, str]:
+        if uuid == "":
+            return 253, ""
+
+        liquor = self.__database.read(uuid=uuid, read_all=False)
+        if isinstance(liquor, Liquor):
+            liquor_price = liquor.get_data()[4]
+            return 0, str(liquor_price)
+        return 252, ""
